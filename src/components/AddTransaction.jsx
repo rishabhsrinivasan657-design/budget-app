@@ -1,13 +1,25 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { CATEGORIES } from '../utils/categories'
 
-const MONTHS = ['January','February','March','April','May','June',
-                'July','August','September','October','November','December']
-
-export default function AddTransaction({ onAdd }) {
+export default function AddTransaction({ onAdd, onEdit, editingTxn, onCancelEdit }) {
   const today = new Date().toISOString().split('T')[0]
-  const [form, setForm] = useState({ date: today, description: '', category: 'Groceries', amount: '' })
+  
+  const defaultForm = { date: today, description: '', category: 'Groceries', amount: '' }
+  const [form, setForm] = useState(defaultForm)
   const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    if (editingTxn) {
+      setForm({
+        date: editingTxn.date || today,
+        description: editingTxn.description || '',
+        category: editingTxn.category || 'Groceries',
+        amount: editingTxn.amount || ''
+      })
+    } else {
+      setForm(defaultForm)
+    }
+  }, [editingTxn, today])
 
   function handle(e) {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }))
@@ -16,10 +28,17 @@ export default function AddTransaction({ onAdd }) {
   function submit(e) {
     e.preventDefault()
     if (!form.description || !form.amount) return
-    const [, monthIdx] = form.date.split('-').map(Number)
-    const month = MONTHS[monthIdx - 1]
-    onAdd({ ...form, amount: parseFloat(form.amount), month })
-    setForm({ date: today, description: '', category: 'Groceries', amount: '' })
+    
+    const payload = { ...form, amount: parseFloat(form.amount) }
+    
+    if (editingTxn) {
+      onEdit(editingTxn.id, payload)
+      onCancelEdit()
+    } else {
+      onAdd(payload)
+    }
+    
+    setForm(defaultForm)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -27,35 +46,50 @@ export default function AddTransaction({ onAdd }) {
   const inputCls = "bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-sm text-stone-800 font-mono outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition-all w-full"
 
   return (
-    <div className="bg-white border border-stone-100 rounded-2xl p-5 mb-6 shadow-sm">
-      <p className="text-xs text-stone-400 uppercase tracking-widest mb-4">Add Transaction</p>
-      <form onSubmit={submit} className="grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
+    <div className="bg-white border border-stone-100 rounded-2xl p-5 shadow-sm">
+      <div className="flex justify-between items-center mb-4">
+        <p className="text-xs text-stone-400 uppercase tracking-widest">
+          {editingTxn ? 'Edit Transaction' : 'Add Transaction'}
+        </p>
+        {editingTxn && (
+          <button 
+            onClick={onCancelEdit}
+            className="text-xs text-stone-400 hover:text-stone-700 transition-colors"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+      
+      <form onSubmit={submit} className="flex flex-col gap-4">
         <div>
-          <label className="text-xs text-stone-400 mb-1 block">Date</label>
-          <input name="date" type="date" value={form.date} onChange={handle} className={inputCls} />
+          <label className="text-xs text-stone-500 mb-1 block font-medium">Date</label>
+          <input name="date" type="date" value={form.date} onChange={handle} className={inputCls} required />
         </div>
-        <div className="md:col-span-2">
-          <label className="text-xs text-stone-400 mb-1 block">Description</label>
+        
+        <div>
+          <label className="text-xs text-stone-500 mb-1 block font-medium">Description</label>
           <input name="description" type="text" value={form.description} onChange={handle}
-            placeholder="e.g. Lidl groceries" className={inputCls} />
+            placeholder="e.g. Lidl groceries" className={inputCls} required />
         </div>
+        
         <div>
-          <label className="text-xs text-stone-400 mb-1 block">Category</label>
+          <label className="text-xs text-stone-500 mb-1 block font-medium">Category</label>
           <select name="category" value={form.category} onChange={handle} className={inputCls}>
-            {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
+        
         <div>
-          <label className="text-xs text-stone-400 mb-1 block">Amount ($)</label>
-          <div className="flex gap-2">
-            <input name="amount" type="number" step="0.01" min="0" value={form.amount}
-              onChange={handle} placeholder="0.00" className={inputCls} />
-            <button type="submit"
-              className="bg-violet-500 hover:bg-violet-400 text-white px-4 rounded-xl text-sm font-bold transition-colors shrink-0 shadow-sm">
-              {saved ? '✓' : '+'}
-            </button>
-          </div>
+          <label className="text-xs text-stone-500 mb-1 block font-medium">Amount ($)</label>
+          <input name="amount" type="number" step="0.01" min="0" value={form.amount}
+            onChange={handle} placeholder="0.00" className={inputCls} required />
         </div>
+        
+        <button type="submit"
+          className="bg-violet-500 hover:bg-violet-600 text-white w-full py-3 rounded-xl text-sm font-bold transition-colors shadow-sm mt-2 flex items-center justify-center gap-2">
+          {saved ? '✓ Saved' : (editingTxn ? 'Save Changes' : '+ Add Expense')}
+        </button>
       </form>
     </div>
   )
